@@ -89,16 +89,18 @@ int get_file_number(char *folder, int type){
 
     if (dr == NULL) // opendir returns NULL if couldn't open directory
     {
-        fprintf(stderr,"Could not open current directory");
+        fprintf(stderr,"Could not open current directory\n");
         return 0;
     }
 
     while ((de = readdir(dr)) != NULL){
         int j;
         DBG("Scanned file %s\n", de->d_name);
-        if(sscanf(de->d_name, FILE_PREFIX"%d[^.]",j) == 1){
+        if(sscanf(de->d_name, FILE_PREFIX"%d[^.]",&j) == 1){
+            DBG("Parsed number: %d\n",j);
+            DBG("Current number: %d\n",i);
             if (type == NEW_FILE) {
-                if (j > i) { i = j+1; }
+                if (j >= i) { i = j+1; } // >= because of 0 case
             } else if (type == OLDEST_FILE) {
                 if (j < i) { i = j; }
             }
@@ -106,6 +108,7 @@ int get_file_number(char *folder, int type){
     }
        
     closedir(dr);
+    DBG("Returned: %d\n",i);
     return i;
 }
 
@@ -117,16 +120,38 @@ Return Value: double remaining space percent
 double get_disk_percentage_free(){
     struct statvfs buffer;
     int ret = statvfs(folder, &buffer);
+    DBG("Folder: %s",folder);
 
     if (ret == 0){
         const double total = (double)(buffer.f_blocks * buffer.f_frsize);
         const double available = (double)(buffer.f_bfree * buffer.f_frsize);
         const double used = total - available;
-        return (double)(used / total) * (double)100;
+        const double free = (double)100 - ((double)(used / total) * (double)100);
+        DBG("Free percent of device: %f\n",free);
+        return free;
     }
     
     return (double)100;
 }
+
+/******************************************************************************
+Description.: Get current file disk usage in percent
+Input Value.: -
+Return Value: double file usage in percent
+******************************************************************************/
+double get_current_file_percentage(){
+    struct stat st;
+    struct statvfs stfs;
+    if (statvfs(folder, &stfs) == 0 && fstat(fd, &st) ==0){
+        const double total = (double)(stfs.f_blocks * stfs.f_frsize);
+        const double fsize = (double)st.st_size;
+        const double used = (double)(fsize / total) * (double)100;
+        DBG("Current file %s uses %f percent space!\n",file_name,used);
+        return used;
+    }
+    return 0;
+}
+
 /******************************************************************************
 Description.: Opens file
 Input Value.: -
@@ -143,6 +168,7 @@ int open_file(){
     // create file path
     char *fnBuffer = malloc(strlen(file_name) + strlen(folder) + 3);
     sprintf(fnBuffer, "%s/%s", folder, file_name);
+    DBG("Will open new file %s",fnBuffer);
 
     if ((fd = open(fnBuffer, O_CREAT | O_RDWR | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) < 0)
     {
@@ -166,10 +192,16 @@ int delete_oldest_file(){
     char *del_file_name = malloc(snprintf(0, 0, FILE_PREFIX "%06d" FILE_EXTENSION, fn_number) + 1);
     sprintf(del_file_name, FILE_PREFIX "%06d" FILE_EXTENSION, fn_number);
     // create file path
-    char *fnBuffer = malloc(strlen(file_name) + strlen(folder) + 3);
-    sprintf(fnBuffer, "%s/%s", folder, file_name);
+    char *fnBuffer = malloc(strlen(del_file_name) + strlen(folder) + 3);
+    sprintf(fnBuffer, "%s/%s", folder, del_file_name);
+    DBG("Oldest file is %s\n",fnBuffer);
 
-    if(remove(fnBuffer) != 0){
+    if(strcmp(del_file_name,file_name) == 0){
+        DBG("Cannot remove myself!\n");
+        free(fnBuffer);
+        free(del_file_name);
+        return 1;
+    }else if(remove(fnBuffer) != 0){
         OPRINT("could not remove file %s\n", fnBuffer);
         free(fnBuffer);
         free(del_file_name);
@@ -181,21 +213,7 @@ int delete_oldest_file(){
     return 0;
 }
 
-/******************************************************************************
-Description.: Get current file disk usage in percent
-Input Value.: -
-Return Value: double file usage in percent
-******************************************************************************/
-double get_current_file_percentage(){
-    struct stat st;
-    struct statvfs stfs;
-    if (statvfs(folder, &stfs) == 0 && fstat(fd, &st) ==0){
-        const double total = (double)(stfs.f_blocks * stfs.f_frsize);
-        const double fsize = (double)st.st_size;
-        return (double)(fsize / total) * (double)100;
-    }
-    return 0;
-}
+
 
 /******************************************************************************
 Description.: clean up allocated resources
@@ -243,7 +261,7 @@ void *worker_thread(void *arg)
     pthread_cleanup_push(worker_cleanup, NULL);
 
     while(ok >= 0 && !pglobal->stop) {
-        DBG("waiting for fresh frame\n");
+        //DBG("waiting for fresh frame\n");
 
         pthread_mutex_lock(&pglobal->in[input_number].db);
         pthread_cond_wait(&pglobal->in[input_number].db_update, &pglobal->in[input_number].db);
@@ -281,15 +299,17 @@ void *worker_thread(void *arg)
         counter++;
         /* typical frame rate, so once per second */
         if(counter > 30){
+            // maximum file size
             if(get_current_file_percentage() > (double)FILE_PERCENTAGE_THRESHOLD){
                 close(fd);
                 if(open_file() == 1){
-                    perror("Could not open new file!");
+                    perror("Could not open new file!\n");
                     return NULL;
                 }
                 OPRINT("Opened new output file: %s\n", file_name)
             }
-            if(get_disk_percentage_free() < (double)usage_percentage){
+            // delete when disk is too full
+            if(get_disk_percentage_free() < ((double)100 - (double)usage_percentage)){
                 delete_oldest_file();
             }
             counter = 0;
@@ -373,7 +393,7 @@ int output_init(output_parameter *param, int id)
             DBG("case 4,5\n");
             usage_percentage = atoi(optarg);
             if(usage_percentage < 0 || usage_percentage > 99){
-                OPRINT("ERROR: size must be between 0 and 99");
+                OPRINT("ERROR: size must be between 0 and 99\n");
                 return -1;
             }
             break;
