@@ -276,7 +276,6 @@ void *worker_thread(void *arg)
                 perror("write()");
                 close(fd);
                 return NULL;
-            }
         }
 
         counter++;
