@@ -190,7 +190,7 @@ double get_current_file_percentage(){
     struct stat st;
     struct statvfs stfs;
     if (statvfs(folder, &stfs) == 0 && fstat(fd, &st) ==0){
-        const double total = (double)(buffer.f_blocks * buffer.f_frsize);
+        const double total = (double)(stfs.f_blocks * stfs.f_frsize);
         const double fsize = (double)st.st_size;
         return (double)(fsize / total) * (double)100;
     }
