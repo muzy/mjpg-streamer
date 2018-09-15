@@ -292,6 +292,7 @@ void *worker_thread(void *arg)
             if(get_disk_percentage_free() < (double)usage_percentage){
                 delete_oldest_file();
             }
+            counter = 0;
         }
     }
 
