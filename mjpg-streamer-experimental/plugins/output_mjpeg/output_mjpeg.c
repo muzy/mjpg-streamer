@@ -138,8 +138,8 @@ int open_file(){
     if (file_name != NULL) {
         free(file_name);
     }
-    file_name = malloc(snprintf(0, 0, FILE_PREFIX "%06d." FILE_EXTENSION, fn_number) + 1);
-    sprintf(file_name, FILE_PREFIX "%06d." FILE_EXTENSION, fn_number);
+    file_name = malloc(snprintf(0, 0, FILE_PREFIX "%06d" FILE_EXTENSION, fn_number) + 1);
+    sprintf(file_name, FILE_PREFIX "%06d" FILE_EXTENSION, fn_number);
     // create file path
     char *fnBuffer = malloc(strlen(file_name) + strlen(folder) + 3);
     sprintf(fnBuffer, "%s/%s", folder, file_name);
@@ -163,8 +163,8 @@ Return Value: status code
 int delete_oldest_file(){
     // get oldest file
     int fn_number = get_file_number(folder, OLDEST_FILE);
-    char *del_file_name = malloc(snprintf(0, 0, FILE_PREFIX "%06d." FILE_EXTENSION, fn_number) + 1);
-    sprintf(del_file_name, FILE_PREFIX "%06d." FILE_EXTENSION, fn_number);
+    char *del_file_name = malloc(snprintf(0, 0, FILE_PREFIX "%06d" FILE_EXTENSION, fn_number) + 1);
+    sprintf(del_file_name, FILE_PREFIX "%06d" FILE_EXTENSION, fn_number);
     // create file path
     char *fnBuffer = malloc(strlen(file_name) + strlen(folder) + 3);
     sprintf(fnBuffer, "%s/%s", folder, file_name);
