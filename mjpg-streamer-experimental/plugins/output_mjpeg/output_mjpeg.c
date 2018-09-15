@@ -377,7 +377,7 @@ int output_init(output_parameter *param, int id)
                 return -1;
             }
             break;
-
+        }
 
     }
 
