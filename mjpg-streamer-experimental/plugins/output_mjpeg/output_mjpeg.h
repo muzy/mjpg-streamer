@@ -4,7 +4,7 @@
 #define FILE_PREFIX "REC"
 #define FILE_EXTENSION ".mjpeg"
 
-#define MJPEG_HEADER "\r\n--myboundary\r\nContent-Type:image/jpeg\r\nContent-Length:%d\r\n\r\n"
+#define MJPEG_HEADER "\r\n--myboundary\r\nContent Type: image/jpeg\r\nImage Size: %d bytes\r\n\r\n"
 
 #define OLDEST_FILE 1
 #define NEW_FILE 2
