@@ -56,6 +56,7 @@
 static pthread_t worker;
 static globals *pglobal;
 static int fd, usage_percentage, max_frame_size;
+static bool compatibility_mode = false;
 static char *folder = "/tmp";
 static unsigned char *frame = NULL;
 static int input_number = 0;
@@ -68,13 +69,14 @@ Return Value: -
 ******************************************************************************/
 void help(void)
 {
-    fprintf(stderr, " ---------------------------------------------------------------\n" \
-            " Help for output plugin..: "OUTPUT_PLUGIN_NAME"\n" \
-            " ---------------------------------------------------------------\n" \
-            " The following parameters can be passed to this plugin:\n\n" \
-            " [-f | --folder ]........: folder to save pictures\n" \
-            " [-s | --size ]..........: percentage of FS usage when old file is deleted\n" \
-            " ---------------------------------------------------------------\n");
+    fprintf(stderr, " ---------------------------------------------------------------\n"
+                    " Help for output plugin...: " OUTPUT_PLUGIN_NAME "\n"
+                    " ---------------------------------------------------------------\n"
+                    " The following parameters can be passed to this plugin:\n\n"
+                    " [-d | --directory ]......: directory to save video files\n"
+                    " [-s | --size ]...........: percentage of FS usage when old file is deleted\n"
+                    " [-c | --compatibility ]..: compatibility modus for VLC\n"
+                    " ---------------------------------------------------------------\n");
 }
 
 /******************************************************************************
@@ -252,7 +254,7 @@ Return Value:
 void *worker_thread(void *arg)
 {
     int ok = 1, frame_size = 0, rc = 0;
-    char buffer1[1024] = {0}, buffer2[1024] = {0};
+    char buffer[1024] = {0};
     unsigned long long counter = 0;
     time_t t;
     unsigned char *tmp_framebuffer = NULL;
@@ -289,11 +291,24 @@ void *worker_thread(void *arg)
         /* allow others to access the global buffer again */
         pthread_mutex_unlock(&pglobal->in[input_number].db);
 
-        if(write(fd, frame, frame_size) < 0) {
-                OPRINT("could not write to file %s",file_name);
+        if(compatibility_mode){
+            sprintf(buffer, MJPEG_HEADER, frame_size);
+            if (write(fd, buffer, strlen(buffer)) < 0)
+                break;
+            if(write(fd, frame, frame_size) < 0) { 
+                    OPRINT("could not write to file %s",file_name);
+                    perror("write()");
+                    close(fd);
+                    return NULL;
+            }
+        }else{
+            if (write(fd, frame, frame_size) < 0)
+            {
+                OPRINT("could not write to file %s", file_name);
                 perror("write()");
                 close(fd);
                 return NULL;
+            }
         }
 
         counter++;
@@ -350,12 +365,13 @@ int output_init(output_parameter *param, int id)
         static struct option long_options[] = {
             {"h", no_argument, 0, 0},
             {"help", no_argument, 0, 0},
-            {"f", required_argument, 0, 0},
-            {"folder", required_argument, 0, 0},
+            {"d", required_argument, 0, 0},
+            {"directory", required_argument, 0, 0},
             {"s", required_argument, 0, 0},
             {"size", required_argument, 0, 0},
-            {0, 0, 0, 0}
-        };
+            {"c", no_argument, 0, 0},
+            {"compatibility", no_argument, 0, 0},
+            {0, 0, 0, 0}};
 
         c = getopt_long_only(param->argc, param->argv, "", long_options, &option_index);
 
@@ -377,7 +393,7 @@ int output_init(output_parameter *param, int id)
             return 1;
             break;
 
-            /* f, folder */
+            /* d, directory */
         case 2:
         case 3:
             DBG("case 2,3\n");
@@ -396,6 +412,13 @@ int output_init(output_parameter *param, int id)
                 OPRINT("ERROR: size must be between 0 and 99\n");
                 return -1;
             }
+            break;
+
+            /* c compatibility */
+        case 6:
+        case 7:
+            DBG("case 6,7\n");
+            compatibility_mode = true;
             break;
         }
 
