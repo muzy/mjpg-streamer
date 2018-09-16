@@ -56,7 +56,7 @@
 static pthread_t worker;
 static globals *pglobal;
 static int fd, usage_percentage, max_frame_size;
-static bool compatibility_mode = false;
+static boolean_t compatibility_mode = FALSE;
 static char *folder = "/tmp";
 static unsigned char *frame = NULL;
 static int input_number = 0;
@@ -418,7 +418,7 @@ int output_init(output_parameter *param, int id)
         case 6:
         case 7:
             DBG("case 6,7\n");
-            compatibility_mode = true;
+            compatibility_mode = TRUE;
             break;
         }
 
